@@ -1,0 +1,87 @@
+
+<!-- saved from url=(0054)http://www.grid.net.ru/nginx/resumable_uploads.en.html -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+<title>Resumable uploads over HTTP. Protocol specification</title>
+</head>
+<body>
+<h2>Resumable uploads over HTTP. Protocol specification</h2>
+<p>Valery Kholodkov <a href="mailto:valery@grid.net.ru">&lt;valery@grid.net.ru&gt;</a>, 2010</p>
+<h3>1. Introduction</h3>
+<p>This document describes application protocol that is used by <a href="http://www.grid.net.ru/nginx/upload.ru.html">nginx upload module</a> to implement resumable file uploads. The first version of the module that supports this protocol is 2.2.0.</p>
+<a name="2"><h3>2. Purpose</h3></a>
+<p>The HTTP implements file uploads according to <a href="http://www.ietf.org/rfc/rfc1867.txt">RFC 1867</a>. When the request length is excessively large, the probability that connection will be interrupted is high. HTTP does not foresee a resumption mechanism. The goal of the protocol being described is to implement a mechanism of resumption of interrupted file transfer or suspension of upload upon user request.</p>
+<a name="2.1"><h3>2.1. Splitting file into segments</h3></a>
+<p>When TCP-connection interrupts abnormaly there is no way to determine what part of data stream has been succesfully delivered and what hasn't been delivered. Therefore a client cannot determine what position to resume from without communicating to server. In order to eliminate additional communication file is represented as an array of segments of reasonable length. When TCP-connection interrupts while transmitting certain segment, client retransmits the whole segment until a positive reponse will be received from server or maximal number of tries will be reached. In the protocol being described the client is responsible for choosing optimal length of a segment.</p>
+<p>For tracking the progress of file upload client and server use identical numbering scheme for each byte of a file. The first byte of a file has number 0, the last byte has number n-1, where n is the length of file in bytes.</p>
+<p>The order of transmission of a segment is not defined. Client may choose arbitrary order. However it is recommended to send segments in order ascention of byte numbers. Moreover, a user agent might decide to send multiple segments simultaneously using multiple independent connections. If a client exceeds maximal number of simultaneous connections allowed, server might return 503 "Service Unavailable" response.</p>
+<p>In case of simultaneous transmission it is prohibited to send 2 or more requests with overlapping ranges within one session. Whenever server detects simultaneous requests with overlapping ranges it must return an errorneous response.</p>
+<a name="2.2"><h3>2.2. Encapsulation</h3></a>
+<p>Each segment of a file is encapsulated into a separate HTTP-request. The method of the request is POST. Each request contains following specific headers:</p>
+<table border="1" width="100%">
+<tbody><tr><th>Header name</th><th>Function</th>
+</tr><tr>
+<td>Content-Disposition</td><td>attachment, filename="name of the file being uploaded"</td>
+</tr>
+<tr>
+<td>Content-Type</td><td>mime type of a file being uploaded (must not be <i>multipart/form-data</i>);</td>
+</tr>
+<tr>
+<td>X-Content-Range<br>
+or<br>
+Content-Range</td><td>byte range of a segment being uploaded;</td>
+</tr>
+<tr><td>X-Session-ID<br>or<br>Session-ID</td><td>identifier of a session of a file being uploaded (see <a href="http://www.grid.net.ru/nginx/resumable_uploads.en.html#2.3">2.3</a>);</td>
+</tr>
+</tbody></table>
+<p>The body of the request must contain a segment of the file, corresponding to the range that was specified in X-Content-Range or Content-Range headers.</p>
+<p>Whenever a user agent is not able to determine mime type of a file, it may use <i>application/octet-stream</i>.</p>
+<a name="2.3"><h3>2.3. Session management</h3></a>
+<p>In order to identify requests containing segments of a file, a user agent sends a unique session identified in headers X-Session-ID or Session-ID. User agent is responsible for making session identifiers unique. Server must be ready to process requests from different IP-addresses corresponding to a single session.</p>
+<a name="2.4"><h3>2.4. Acknowledgment</h3></a>
+<p>Server acknowledges reception of each segment with a positive response. Positive responses are: 201 "Created" whenever at the moment of the response generation not all segments of the file were received or other 2xx and 3xx responses whenever at the moment of the response generation all segments of the file were received. Server must return positive response only when all bytes of a segment were successfully saved and information about which of the byte ranges were received was successfully updated.</p>
+<p>Upon reception of 201 "Created" response client must proceed with transmission of a next segment. Upon reception of other positive response codes client must proceed according to their standart interpretation (see. <a href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</a>).</p>
+<p>In each 201 "Created" response server returns a Range header containing enumeration of all byte ranges of a file that were received at the moment of the response generation. Server returns identical list of ranges in response body.</p>
+<a name="appa"><h3>Appendix A: Session examples</h3></a>
+<p>Example 1: Request from client containing the first segment of the file</p>
+<pre>POST /upload HTTP/1.1
+Host: example.com
+Content-Length: 51201
+Content-Type: application/octet-stream
+Content-Disposition: attachment; filename="big.TXT"
+X-Content-Range: bytes 0-51200/511920
+Session-ID: 1111215056 
+
+&lt;bytes 0-51200&gt;
+</pre>
+<p>Example 2: Response to a request containing first segment of a file</p>
+<pre>HTTP/1.1 201 Created
+Date: Thu, 02 Sep 2010 12:54:40 GMT
+Content-Length: 14
+Connection: close
+Range: 0-51200/511920
+
+0-51200/511920 
+</pre>
+<p>Example 3: Request from client containing the last segment of the file</p>
+<pre>POST /upload HTTP/1.1
+Host: example.com
+Content-Length: 51111
+Content-Type: application/octet-stream
+Content-Disposition: attachment; filename="big.TXT"
+X-Content-Range: bytes 460809-511919/511920
+Session-ID: 1111215056
+
+&lt;bytes 460809-511919&gt;
+</pre>
+<p>Example 4: Response to a request containing last segment of a file</p>
+<pre>HTTP/1.1 200 OK
+Date: Thu, 02 Sep 2010 12:54:43 GMT
+Content-Type: text/html
+Connection: close
+Content-Length: 2270
+
+&lt;response body&gt;
+</pre>
+
+
+</body></html>
