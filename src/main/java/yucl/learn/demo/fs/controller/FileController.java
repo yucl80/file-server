@@ -81,7 +81,7 @@ public class FileController {
             Map<String, String> fileExtAttrs = new HashMap<>();
             fileExtAttrs.put("Content-Type", multipartFile.getContentType());
             fileExtAttrs.put("File-Name", extractFileNameFromMultipartFile(multipartFile));
-            Map<String, String> resultMap = fileService.uploadHandle(schema, multipartFile.getInputStream(), multipartFile.getSize(), fileExtAttrs);
+            Map<String, String> resultMap = fileService.uploadHandle(schema, multipartFile, fileExtAttrs);
             resultMapList.add(resultMap);
         }
         return new ResponseEntity<>(resultMapList, HttpStatus.CREATED);
