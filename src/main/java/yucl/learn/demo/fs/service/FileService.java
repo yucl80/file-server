@@ -1,5 +1,6 @@
 package yucl.learn.demo.fs.service;
 
+import org.springframework.web.multipart.MultipartFile;
 import yucl.learn.demo.fs.domain.FileInfo;
 import yucl.learn.demo.fs.domain.TrackRecord;
 
@@ -21,6 +22,8 @@ public interface FileService {
     Map<String,String> resumableUploadHandle(String fileId, InputStream inputStream, long position, long count) throws IOException;
 
     Map<String,String>  uploadHandle(String schema, InputStream inputStream,long fileLength, Map<String,String> fileExtAttrs) throws IOException;
+
+    Map<String,String>  uploadHandle(String schema, MultipartFile multipartFile, Map<String,String> fileExtAttrs) throws IOException;
 
     void updateFileAttrs(String fileId,Map<String,String> fileExtAttrs);
 

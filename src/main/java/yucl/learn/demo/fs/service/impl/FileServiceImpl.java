@@ -1,7 +1,9 @@
 package yucl.learn.demo.fs.service.impl;
 
+import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
 import com.google.common.hash.HashingInputStream;
+import com.google.common.io.Files;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -169,6 +171,25 @@ public class FileServiceImpl implements FileService {
         return resultMap;
     }
 
+    @Override
+    public Map<String, String> uploadHandle(String schema, MultipartFile multipartFile, Map<String, String> fileExtAttrs) throws IOException {
+        String fileId = FileId.get(replicateService.getClusterId(), schema).toString();
+        File dir = filePathService.getFilePath(fileId).getParent().toFile();
+        if (!dir.exists()) {
+            dir.mkdirs();
+        }
+        Map<String, String> resultMap = new HashMap<>();
+        resultMap.put("FileId", fileId);
+        Path filePath = filePathService.getFilePath(fileId);
+        File  file = filePath.toFile();
+        multipartFile.transferTo(file);
+        HashCode md5 = Files.hash(file, Hashing.md5());
+        fileAttrService.setFileExtAttrs(filePath, fileExtAttrs);
+        resultMap.put("ContentHash", "md5:" + md5.toString());
+        doUploadComplete(fileId);
+        return resultMap;
+    }
+
 
     @Override
     public String getFileUploadProgress(String fileId)  {
@@ -233,26 +254,7 @@ public class FileServiceImpl implements FileService {
     }
 
 
-    public void writeToFile(MultipartFile file, String filePath)
-            throws IOException, InterruptedException, ExecutionException {
-        InputStream inputStream = file.getInputStream();
-        try (final ReadableByteChannel inputChannel = Channels.newChannel(inputStream);
-             final AsynchronousFileChannel outputChannel = AsynchronousFileChannel.open(FileSystems.getDefault().getPath(filePath), StandardOpenOption.CREATE, StandardOpenOption.WRITE)) {
-            outputChannel.lock();
-            final ByteBuffer buffer = ByteBuffer.allocate(8192);
-            int position = 0;
-            int receivedBytes = 0;
-            Future<Integer> lastWrite = null;
-            while ((receivedBytes = inputChannel.read(buffer)) >= 0 || buffer.position() != 0) {
-                buffer.flip();
-                lastWrite = outputChannel.write(buffer, position);
-                position += receivedBytes;
-                if (lastWrite != null)
-                    lastWrite.get();
-                buffer.compact();
-            }
-        }
-    }
+
 
 }
 
