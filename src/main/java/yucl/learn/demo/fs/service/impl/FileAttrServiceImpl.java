@@ -67,7 +67,11 @@ public class FileAttrServiceImpl implements FileAttrService {
     public void setFileExtAttrs(Path filePath, Map<String, String> fileExtAttrs) throws IOException {
         UserDefinedFileAttributeView udfav = Files.getFileAttributeView(filePath, UserDefinedFileAttributeView.class);
         for (Map.Entry<String, String> entity : fileExtAttrs.entrySet()) {
-            udfav.write(entity.getKey(), UTF_8.encode(entity.getValue()));
+            if(entity.getValue() != null) {
+                udfav.write(entity.getKey(), UTF_8.encode(entity.getValue()));
+            }else {
+                logger.error(filePath.toString()+" : "+entity.getKey() +" is null");
+            }
         }
     }
 
