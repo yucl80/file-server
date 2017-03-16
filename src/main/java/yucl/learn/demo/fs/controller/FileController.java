@@ -14,6 +14,7 @@ import yucl.learn.demo.fs.service.FileService;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.WritableByteChannel;
@@ -93,10 +94,9 @@ public class FileController {
                              @RequestHeader(value = "Range", required = false) String range) throws IOException {
         FileInfo fileInfo = fileService.getFileInfo(fileId);
         if (fileInfo != null) {
+            OutputStream outputStream = response.getOutputStream();
             try (final FileChannel inputChannel = FileChannel.open(filePathService.getFilePath(fileId), StandardOpenOption.READ);
-                 final WritableByteChannel outputChannel = Channels.newChannel(response.getOutputStream())) {
-                // response.setContentType("application/octet-stream");
-                //response.addHeader("Accept-Ranges", "bytes");
+                 final WritableByteChannel outputChannel = Channels.newChannel(outputStream)) {
                 response.setContentType(fileInfo.getContentType());
                 response.setContentLengthLong(inputChannel.size());
                 response.setHeader("Content-Disposition", "attachment; filename="
@@ -106,6 +106,8 @@ public class FileController {
                     response.addHeader("X-" + entry.getKey(), entry.getValue());
                 }
                 inputChannel.transferTo(0, inputChannel.size(), outputChannel);
+                outputStream.flush();
+                outputStream.close();
             }
         } else {
             response.setStatus(HttpServletResponse.SC_NOT_FOUND);
