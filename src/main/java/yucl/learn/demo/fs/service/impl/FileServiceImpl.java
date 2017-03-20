@@ -14,20 +14,15 @@ import yucl.learn.demo.fs.domain.FileInfo;
 import yucl.learn.demo.fs.service.*;
 
 import java.io.*;
-import java.nio.ByteBuffer;
-import java.nio.channels.AsynchronousFileChannel;
 import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 
 
 /**
@@ -69,7 +64,7 @@ public class FileServiceImpl implements FileService {
     }
 
 
-    public Map<String, String> resumableUploadHandle(String fileId, InputStream inputStream, long position, long count) throws IOException {
+    public Map<String, String> resumableUploadHandle(String fileId, InputStream inputStream, long position, long partSize, long fileSize) throws IOException {
         Path tempFilePath = filePathService.getTempFilePath(fileId);
         File trackFile = filePathService.getTrackFilePath(fileId).toFile();
         Map<String, String> resultMap = new HashMap<>();
@@ -78,15 +73,15 @@ public class FileServiceImpl implements FileService {
              //final DigestInputStream digestInputStream = new DigestInputStream(inputStream, messageDigest);
              final ReadableByteChannel inputChannel = Channels.newChannel(hashingInputStream);
              final FileChannel outputChannel = FileChannel.open(tempFilePath, StandardOpenOption.WRITE)) {
-            long size = outputChannel.transferFrom(inputChannel, position, count);
+            long size = outputChannel.transferFrom(inputChannel, position, partSize);
             try (FileOutputStream fileOutputStream = new FileOutputStream(trackFile, true)) {
                 fileOutputStream.write(new StringBuilder().append(String.valueOf(position)).append(" ").append(String.valueOf(position + size - 1)).append("\n").toString().getBytes(StandardCharsets.UTF_8));
                 fileOutputStream.flush();
             }
-            resultMap.put("ContentRange", position + "-" + size);
+            resultMap.put("ContentRange", position + "-" + (position + size));
             resultMap.put("ContentHash", "md5:" + hashingInputStream.hash().toString());
         }
-        if (isUploadComplete(tempFilePath.toFile(), trackFile)) {
+        if (isUploadComplete(trackFile, fileSize)) {
             tempFilePath.toFile().renameTo(filePathService.getFilePath(fileId).toFile());
             trackFile.delete();
             doUploadComplete(fileId);
@@ -112,7 +107,7 @@ public class FileServiceImpl implements FileService {
     }
 
 
-    private boolean isUploadComplete(File file, File trackFile) throws IOException {
+    private boolean isUploadComplete(File trackFile, long fileSize) throws IOException {
         try (BufferedReader bufferedReader = new BufferedReader(new FileReader(trackFile))) {
             String line = null;
             List<TrackRecord> trackList = new ArrayList<>();
@@ -135,7 +130,7 @@ public class FileServiceImpl implements FileService {
             if (trackList.get(0).begin != 0) {
                 return false;
             }
-            if (trackList.get(trackList.size() - 1).end + 1 != file.length()) {
+            if (trackList.get(trackList.size() - 1).end + 1 != fileSize) {
                 return false;
             }
             for (int i = 0; i < trackList.size() - 1; i++) {
@@ -181,7 +176,7 @@ public class FileServiceImpl implements FileService {
         Map<String, String> resultMap = new HashMap<>();
         resultMap.put("FileId", fileId);
         Path filePath = filePathService.getFilePath(fileId);
-        File  file = filePath.toFile();
+        File file = filePath.toFile();
         multipartFile.transferTo(file);
         HashCode md5 = Files.hash(file, Hashing.md5());
         fileAttrService.setFileExtAttrs(filePath, fileExtAttrs);
@@ -192,7 +187,7 @@ public class FileServiceImpl implements FileService {
 
 
     @Override
-    public String getFileUploadProgress(String fileId)  {
+    public String getFileUploadProgress(String fileId) {
         try {
             File trackFile = filePathService.getTrackFilePath(fileId).toFile();
             List<TrackRecord> trackList = new ArrayList<>();
@@ -212,8 +207,8 @@ public class FileServiceImpl implements FileService {
             if (file.exists()) {
                 trackList.add(new TrackRecord(0, file.length() - 1));
             }
-        }catch (IOException e){
-            logger.error("Get File Upload Progress Failed "+fileId,e);
+        } catch (IOException e) {
+            logger.error("Get File Upload Progress Failed " + fileId, e);
         }
 
         return null;
@@ -252,8 +247,6 @@ public class FileServiceImpl implements FileService {
         }
         return null;
     }
-
-
 
 
 }

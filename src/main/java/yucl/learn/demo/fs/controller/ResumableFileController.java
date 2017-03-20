@@ -31,10 +31,10 @@ public class ResumableFileController {
     @Autowired
     private FileService fileService;
 
-    @RequestMapping(value = "/newFile/{schema}", method = RequestMethod.POST)
+    @RequestMapping(value = "/newFile", method = RequestMethod.POST)
     public ResponseEntity createNewFile(Principal principal,
                                         @RequestParam(value = "fileName", required = true) String fileName,
-                                        @RequestParam(value = "fileLength", required = true, defaultValue = "0") long fileLength,
+                                        @RequestParam(value = "fileLength", required = true) long fileLength,
                                         @RequestParam(value = "fileType", required = true) String contentType)
             throws IOException, InterruptedException, ExecutionException {
         String schema = "00";
@@ -54,7 +54,7 @@ public class ResumableFileController {
         String fileId = extractFileName(contentDisposition);
         if (contentRangeMatcher.find() && fileId != null) {
             long position = Long.parseLong(contentRangeMatcher.group(1));
-            Map resultMap = fileService.resumableUploadHandle(fileId, request.getInputStream(), position, contentLength);
+            Map resultMap = fileService.resumableUploadHandle(fileId, request.getInputStream(), position, contentLength, position);
             return new ResponseEntity<>(resultMap, HttpStatus.OK);
         }
         return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
@@ -71,7 +71,8 @@ public class ResumableFileController {
         String fileId = extractFileName(contentDisposition);
         if (contentRangeMatcher.find() && fileId != null) {
             long position = Long.parseLong(contentRangeMatcher.group(1));
-            Map resultMap = fileService.resumableUploadHandle(fileId, multipartFile.getInputStream(), position, multipartFile.getSize());
+            long fileSize = Long.parseLong(contentRangeMatcher.group(3));
+            Map resultMap = fileService.resumableUploadHandle(fileId, multipartFile.getInputStream(), position, multipartFile.getSize(),fileSize);
             return new ResponseEntity<>(resultMap, HttpStatus.OK);
         }
         return new ResponseEntity<>(HttpStatus.BAD_REQUEST);

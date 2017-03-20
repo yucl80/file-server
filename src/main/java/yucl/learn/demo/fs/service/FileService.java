@@ -15,7 +15,7 @@ import java.util.Map;
 public interface FileService {
 	String getNewFileId(String schema, String fileName, long fileLength,  Map<String, String> fileExtAttrs) throws IOException;
 
-    Map<String,String> resumableUploadHandle(String fileId, InputStream inputStream, long position, long count) throws IOException;
+    Map<String,String> resumableUploadHandle(String fileId, InputStream inputStream, long position, long partSize, long fileSize) throws IOException;
 
     Map<String,String>  uploadHandle(String schema, InputStream inputStream,long fileLength, Map<String,String> fileExtAttrs) throws IOException;
 
