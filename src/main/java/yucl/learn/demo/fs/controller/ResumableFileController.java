@@ -54,7 +54,8 @@ public class ResumableFileController {
         String fileId = extractFileName(contentDisposition);
         if (contentRangeMatcher.find() && fileId != null) {
             long position = Long.parseLong(contentRangeMatcher.group(1));
-            Map resultMap = fileService.resumableUploadHandle(fileId, request.getInputStream(), position, contentLength, position);
+            long fileSize = Long.parseLong(contentRangeMatcher.group(3));
+            Map resultMap = fileService.resumableUploadHandle(fileId, request.getInputStream(), position, contentLength, fileSize);
             return new ResponseEntity<>(resultMap, HttpStatus.OK);
         }
         return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
