@@ -53,7 +53,6 @@ public class FileServiceImpl implements FileService {
         if (!file.exists()) {
             try(RandomAccessFile targetFile = new RandomAccessFile(file, "rw")) {
                 targetFile.setLength(fileLength);
-                targetFile.close();
             }
             fileAttrService.setFileExtAttrs(tempFilePath, fileExtAttrs);
         }
