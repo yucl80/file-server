@@ -51,9 +51,10 @@ public class FileServiceImpl implements FileService {
         Path tempFilePath = filePathService.getTempFilePath(fileId);
         File file = tempFilePath.toFile();
         if (!file.exists()) {
-            RandomAccessFile targetFile = new RandomAccessFile(file, "rw");
-            targetFile.setLength(fileLength);
-            targetFile.close();
+            try(RandomAccessFile targetFile = new RandomAccessFile(file, "rw")) {
+                targetFile.setLength(fileLength);
+                targetFile.close();
+            }
             fileAttrService.setFileExtAttrs(tempFilePath, fileExtAttrs);
         }
         File trackFile = filePathService.getTrackFilePath(fileId).toFile();
